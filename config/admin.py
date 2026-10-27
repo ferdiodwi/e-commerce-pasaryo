@@ -1,0 +1,25 @@
+from django.contrib.admin import AdminSite
+from django.contrib.admin.forms import AdminAuthenticationForm
+from django.core.exceptions import ValidationError
+
+
+class RoleAdminAuthenticationForm(AdminAuthenticationForm):
+    def confirm_login_allowed(self, user):
+        super().confirm_login_allowed(user)
+
+        if getattr(user, "role", None) != "admin":
+            raise ValidationError(
+                self.error_messages["invalid_login"],
+                code="invalid_login",
+                params={"username": self.username_field.verbose_name},
+            )
+
+
+class RoleAdminSite(AdminSite):
+    login_form = RoleAdminAuthenticationForm
+
+    def has_permission(self, request):
+        return (
+            super().has_permission(request)
+            and getattr(request.user, "role", None) == "admin"
+        )
