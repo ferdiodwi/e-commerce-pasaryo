@@ -106,11 +106,31 @@ class Order(models.Model):
     estimated_delivery_from = models.DateField(null=True, blank=True)
     estimated_delivery_to = models.DateField(null=True, blank=True)
     payment_due_at = models.DateTimeField(null=True, blank=True)
+    checkout_key = models.UUIDField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    checkout_payload = models.JSONField(
+        default=dict,
+        blank=True,
+        editable=False,
+    )
+    stock_deducted = models.BooleanField(
+        default=False,
+        editable=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "orders"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "checkout_key"],
+                name="unique_checkout_key_per_user",
+            ),
+        ]
 
     def __str__(self):
         return self.order_number

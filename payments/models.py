@@ -36,6 +36,7 @@ class Payment(models.Model):
         SUCCESS = "SUCCESS", "Success"
         FAILED = "FAILED", "Failed"
         EXPIRED = "EXPIRED", "Expired"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     order = models.ForeignKey(
         "orders.Order",
