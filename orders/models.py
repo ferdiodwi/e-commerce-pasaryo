@@ -3,6 +3,14 @@ from decimal import Decimal
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from decimal import Decimal
+from uuid import uuid4
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
+from django.db import models
+
 
 class ShippingMethod(models.Model):
     name = models.CharField(max_length=100)
@@ -21,3 +29,139 @@ class ShippingMethod(models.Model):
 
     def __str__(self):
         return self.name
+
+
+def generate_order_number():
+    return f"ORD-{uuid4().hex.upper()}"
+
+
+class Order(models.Model):
+    class Status(models.TextChoices):
+        TO_PAY = "to_pay", "To Pay"
+        PROCESSING = "processing", "Processing"
+        SHIPPED = "shipped", "Shipped"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    order_number = models.CharField(
+        max_length=50,
+        unique=True,
+        default=generate_order_number,
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="orders",
+    )
+    shipping_method = models.ForeignKey(
+        ShippingMethod,
+        on_delete=models.PROTECT,
+        related_name="orders",
+    )
+    promo_code = models.ForeignKey(
+        "promotions.PromoCode",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+    )
+
+    shipping_address_snapshot = models.TextField()
+
+    subtotal = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    shipping_fee = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    service_fee = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.TO_PAY,
+    )
+    estimated_delivery_from = models.DateField(null=True, blank=True)
+    estimated_delivery_to = models.DateField(null=True, blank=True)
+    payment_due_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "orders"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.order_number
+
+    def clean(self):
+        super().clean()
+
+        if (
+            self.estimated_delivery_from
+            and self.estimated_delivery_to
+            and self.estimated_delivery_to < self.estimated_delivery_from
+        ):
+            raise ValidationError(
+                {
+                    "estimated_delivery_to": (
+                        "Tanggal akhir estimasi tidak boleh lebih awal."
+                    )
+                }
+            )
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    product_variant = models.ForeignKey(
+        "catalog.ProductVariant",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+    )
+
+    product_name_snapshot = models.CharField(max_length=200)
+    variant_name_snapshot = models.CharField(max_length=100)
+    sku_snapshot = models.CharField(max_length=64)
+
+    quantity = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+    )
+    price_at_purchase = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+
+    class Meta:
+        db_table = "order_items"
+
+    def __str__(self):
+        return f"{self.product_name_snapshot} x {self.quantity}"

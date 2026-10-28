@@ -87,3 +87,15 @@ class ProductAdmin(admin.ModelAdmin):
         ProductImageInline,
         ProductVariantInline,
     )
+
+
+
+@admin.register(ProductVariant)
+class ProductVariantAdmin(admin.ModelAdmin):
+    list_display = ("id", "product", "color_name", "sku", "stock")
+    list_display_links = ("id",)
+    search_fields = ("sku", "product__name", "color_name")
+    list_select_related = ("product",)
+    autocomplete_fields = ("product",)
+    ordering = ("-id",)
+    list_per_page = 25
