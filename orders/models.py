@@ -165,3 +165,68 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product_name_snapshot} x {self.quantity}"
+
+
+class OrderTracking(models.Model):
+    class StatusCode(models.TextChoices):
+        ORDER_PLACED = "order_placed", "Order Placed"
+        PAYMENT_CONFIRMED = "payment_confirmed", "Payment Confirmed"
+        PROCESSING = "processing", "Processing"
+        SHIPPED = "shipped", "Shipped"
+        IN_TRANSIT = "in_transit", "In Transit"
+        DELIVERED = "delivered", "Delivered"
+        CANCELLED = "cancelled", "Cancelled"
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="trackings",
+    )
+
+    status_code = models.CharField(
+        max_length=30,
+        choices=StatusCode.choices,
+    )
+
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    event_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Waktu kejadian benar-benar terjadi.",
+    )
+
+    expected_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Perkiraan waktu kejadian, jika ada.",
+    )
+
+    is_completed = models.BooleanField(
+        default=False,
+        help_text="Centang jika tahap ini sudah terjadi.",
+    )
+
+    class Meta:
+        db_table = "order_trackings"
+        ordering = ["event_time", "id"]
+        verbose_name = "riwayat pesanan"
+        verbose_name_plural = "riwayat pesanan"
+
+    def __str__(self):
+        return f"Order #{self.order_id} - {self.get_status_code_display()}"
+
+    def clean(self):
+        super().clean()
+
+        if self.is_completed and self.event_time is None:
+            raise ValidationError(
+                {
+                    "event_time": (
+                        "Waktu kejadian wajib diisi jika tahap sudah terjadi."
+                    )
+                }
+            )

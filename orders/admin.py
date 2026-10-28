@@ -1,7 +1,12 @@
 from django.contrib import admin
 
 from .forms import OrderItemInlineFormSet
-from .models import Order, OrderItem, ShippingMethod
+from .models import (
+    Order,
+    OrderItem,
+    OrderTracking,
+    ShippingMethod,
+)
 
 
 @admin.register(ShippingMethod)
@@ -37,6 +42,23 @@ class OrderItemInline(admin.TabularInline):
         "price_at_purchase",
     )
 
+class OrderTrackingInline(admin.TabularInline):
+    model = OrderTracking
+
+    fields = (
+        "status_code",
+        "description",
+        "event_time",
+        "expected_time",
+        "is_completed",
+    )
+
+    extra = 0
+    ordering = ("event_time", "id")
+
+    verbose_name = "Riwayat pesanan"
+    verbose_name_plural = "Riwayat pesanan"
+
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
@@ -57,7 +79,10 @@ class OrderAdmin(admin.ModelAdmin):
     list_per_page = 25
 
     readonly_fields = ("subtotal", "total_amount", "created_at")
-    inlines = (OrderItemInline,)
+    inlines = (
+    OrderItemInline,
+    OrderTrackingInline,
+    )
 
     fieldsets = (
         (
@@ -96,4 +121,46 @@ class OrderAdmin(admin.ModelAdmin):
                 )
             },
         ),
+    )
+
+
+@admin.register(OrderTracking)
+class OrderTrackingAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "order",
+        "status_code",
+        "description",
+        "event_time",
+        "expected_time",
+        "is_completed",
+    )
+
+    list_display_links = ("id",)
+
+    search_fields = (
+        "order__order_number",
+        "order__user__email",
+        "description",
+    )
+
+    list_filter = (
+        "status_code",
+        "is_completed",
+    )
+
+    list_select_related = ("order",)
+    autocomplete_fields = ("order",)
+
+    date_hierarchy = "event_time"
+    ordering = ("-event_time", "-id")
+    list_per_page = 25
+
+    fields = (
+        "order",
+        "status_code",
+        "description",
+        "event_time",
+        "expected_time",
+        "is_completed",
     )
