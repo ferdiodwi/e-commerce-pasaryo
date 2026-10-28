@@ -1,6 +1,8 @@
 from django.contrib import admin
 
 from .models import Payment, PaymentMethod
+from .forms import PaymentAdminForm
+from .services import save_payment
 
 
 @admin.register(PaymentMethod)
@@ -28,6 +30,8 @@ class PaymentMethodAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
+    form = PaymentAdminForm
+
     list_display = (
         "id",
         "payment_reference",
@@ -96,3 +100,6 @@ class PaymentAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    def save_model(self, request, obj, form, change):
+        save_payment(obj)

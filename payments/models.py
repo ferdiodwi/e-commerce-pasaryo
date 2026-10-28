@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from orders.models import Order
 
 class PaymentMethod(models.Model):
     name = models.CharField(max_length=100)
@@ -91,24 +92,77 @@ class Payment(models.Model):
 
     def clean(self):
         super().clean()
+        errors = {}
+
+        previous = None
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).first()
+
+        if previous and self.order_id != previous.order_id:
+            errors["order"] = (
+                "Pesanan pada pembayaran tersimpan tidak dapat dipindahkan. "
+                "Buat catatan pembayaran baru."
+            )
+
+        already_success = (
+            previous is not None
+            and previous.payment_status == self.Status.SUCCESS
+        )
+
+        if already_success:
+            protected_fields = (
+                "payment_method",
+                "payment_reference",
+                "payment_amount",
+                "payment_status",
+                "paid_at",
+            )
+
+            for name in protected_fields:
+                attname = self._meta.get_field(name).attname
+
+                if getattr(self, attname) != getattr(previous, attname):
+                    errors[name] = (
+                        "Data konfirmasi pembayaran sukses tidak dapat diubah."
+                    )
 
         if self.payment_status == self.Status.SUCCESS:
             if self.paid_at is None:
-                raise ValidationError(
-                    {
-                        "paid_at": (
-                            "Waktu pembayaran wajib diisi "
-                            "untuk status Success."
-                        )
-                    }
+                errors["paid_at"] = (
+                    "Waktu pembayaran wajib diisi untuk status Success."
                 )
 
+            if self.order_id and not already_success:
+                order = Order.objects.filter(pk=self.order_id).first()
+
+                if order is not None:
+                    if order.status == Order.Status.CANCELLED:
+                        errors["order"] = (
+                            "Pesanan yang dibatalkan tidak dapat dikonfirmasi."
+                        )
+
+                    if (
+                        self.payment_amount is not None
+                        and self.payment_amount != order.total_amount
+                    ):
+                        errors["payment_amount"] = (
+                            "Nominal pembayaran harus sama dengan total pesanan."
+                        )
+
+                    other_success = type(self).objects.filter(
+                        order_id=self.order_id,
+                        payment_status=self.Status.SUCCESS,
+                    ).exclude(pk=self.pk)
+
+                    if other_success.exists():
+                        errors["payment_status"] = (
+                            "Pesanan ini sudah memiliki pembayaran sukses."
+                        )
+
         elif self.paid_at is not None:
-            raise ValidationError(
-                {
-                    "paid_at": (
-                        "Waktu pembayaran hanya diisi "
-                        "untuk status Success."
-                    )
-                }
+            errors["paid_at"] = (
+                "Waktu pembayaran hanya diisi untuk status Success."
             )
+
+        if errors:
+            raise ValidationError(errors)
