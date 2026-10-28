@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 class DiscountType(models.TextChoices):
     PERCENTAGE = "percentage", "Persentase"
@@ -129,9 +130,14 @@ class Discount(models.Model):
     end_date = models.DateTimeField()
 
     discount_value = models.DecimalField(
+        verbose_name="Diskon (%)",
         max_digits=12,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal("0.00"))],
+        validators=[
+            MinValueValidator(Decimal("0.00")),
+            MaxValueValidator(Decimal("100.00")),
+        ],
+        help_text="Contoh: isi 20 untuk diskon 20%.",
     )
 
     class Meta:
