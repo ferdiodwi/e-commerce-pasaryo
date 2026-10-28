@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from .forms import ProductVariantAdminForm
 from .models import (
     Brand,
     Category,
@@ -7,6 +8,7 @@ from .models import (
     ProductImage,
     ProductVariant,
 )
+from .services import save_product_variant
 
 
 @admin.register(Brand)
@@ -40,11 +42,12 @@ class ProductImageInline(admin.TabularInline):
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     fields = ("color_name", "sku", "stock")
+    readonly_fields = ("stock",)
     extra = 1
 
     verbose_name = "Varian produk"
     verbose_name_plural = "Varian produk"
-    
+
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -88,10 +91,25 @@ class ProductAdmin(admin.ModelAdmin):
         ProductVariantInline,
     )
 
+    def save_formset(self, request, form, formset, change):
+        if formset.model is not ProductVariant:
+            return super().save_formset(request, form, formset, change)
+
+        instances = formset.save(commit=False)
+
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        for instance in instances:
+            save_product_variant(instance)
+
+        formset.save_m2m()
 
 
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
+    form = ProductVariantAdminForm
+
     list_display = ("id", "product", "color_name", "sku", "stock")
     list_display_links = ("id",)
     search_fields = ("sku", "product__name", "color_name")
@@ -99,3 +117,56 @@ class ProductVariantAdmin(admin.ModelAdmin):
     autocomplete_fields = ("product",)
     ordering = ("-id",)
     list_per_page = 25
+
+    readonly_fields = ("stock",)
+
+    fields = (
+        "product",
+        "color_name",
+        "sku",
+        "stock",
+        "stock_adjustment",
+        "stock_note",
+    )
+
+    def save_model(self, request, obj, form, change):
+        save_product_variant(
+            obj,
+            adjustment=(
+                form.cleaned_data.get("stock_adjustment") or 0
+            ),
+        )
+
+    def construct_change_message(
+        self,
+        request,
+        form,
+        formsets,
+        add=False,
+    ):
+        message = super().construct_change_message(
+            request,
+            form,
+            formsets,
+            add,
+        )
+        adjustment = (
+            form.cleaned_data.get("stock_adjustment") or 0
+        )
+
+        if adjustment:
+            obj = form.instance
+            note = form.cleaned_data["stock_note"]
+            message.append(
+                {
+                    "changed": {
+                        "fields": [
+                            f"Stok {obj._stock_before} "
+                            f"menjadi {obj.stock} "
+                            f"({adjustment:+d}); alasan: {note}"
+                        ],
+                    },
+                }
+            )
+
+        return message
