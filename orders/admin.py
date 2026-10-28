@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .forms import OrderAdminForm
+from .forms import OrderAdminForm, OrderTrackingAdminForm
 from .models import (
     Order,
     OrderItem,
@@ -47,6 +47,8 @@ class OrderItemInline(admin.TabularInline):
 
 class OrderTrackingInline(admin.TabularInline):
     model = OrderTracking
+    form = OrderTrackingAdminForm
+    can_delete = False
 
     fields = (
         "status_code",
@@ -164,6 +166,8 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(OrderTracking)
 class OrderTrackingAdmin(admin.ModelAdmin):
+    form = OrderTrackingAdminForm
+
     list_display = (
         "id",
         "order",
@@ -202,6 +206,9 @@ class OrderTrackingAdmin(admin.ModelAdmin):
         "expected_time",
         "is_completed",
     )
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Review)

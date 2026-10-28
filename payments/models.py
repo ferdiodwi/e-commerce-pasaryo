@@ -104,12 +104,12 @@ class Payment(models.Model):
                 "Buat catatan pembayaran baru."
             )
 
-        already_success = (
+        already_final = (
             previous is not None
-            and previous.payment_status == self.Status.SUCCESS
+            and previous.payment_status != self.Status.PENDING
         )
 
-        if already_success:
+        if already_final:
             protected_fields = (
                 "payment_method",
                 "payment_reference",
@@ -118,13 +118,20 @@ class Payment(models.Model):
                 "paid_at",
             )
 
+            error_message = (
+                "Data konfirmasi pembayaran sukses tidak dapat diubah."
+                if previous.payment_status == self.Status.SUCCESS
+                else (
+                    "Pembayaran yang sudah berakhir "
+                    "(Failed/Expired) tidak dapat diubah lagi."
+                )
+            )
+
             for name in protected_fields:
                 attname = self._meta.get_field(name).attname
 
                 if getattr(self, attname) != getattr(previous, attname):
-                    errors[name] = (
-                        "Data konfirmasi pembayaran sukses tidak dapat diubah."
-                    )
+                    errors[name] = error_message
 
         if self.payment_status == self.Status.SUCCESS:
             if self.paid_at is None:
@@ -132,7 +139,7 @@ class Payment(models.Model):
                     "Waktu pembayaran wajib diisi untuk status Success."
                 )
 
-            if self.order_id and not already_success:
+            if self.order_id and not already_final:
                 order = Order.objects.filter(pk=self.order_id).first()
 
                 if order is not None:
