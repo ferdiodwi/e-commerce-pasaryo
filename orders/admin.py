@@ -5,6 +5,7 @@ from .models import (
     Order,
     OrderItem,
     OrderTracking,
+    Review,
     ShippingMethod,
 )
 
@@ -164,3 +165,65 @@ class OrderTrackingAdmin(admin.ModelAdmin):
         "expected_time",
         "is_completed",
     )
+
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "order_item",
+        "customer_email",
+        "rating",
+        "created_at",
+    )
+
+    list_display_links = ("id",)
+
+    search_fields = (
+        "order_item__order__order_number",
+        "order_item__order__user__email",
+        "order_item__product_name_snapshot",
+        "order_item__sku_snapshot",
+        "comment",
+    )
+
+    list_filter = ("rating",)
+
+    list_select_related = (
+        "order_item__order__user",
+    )
+
+    readonly_fields = ("created_at",)
+
+    fields = (
+        "order_item",
+        "rating",
+        "comment",
+        "created_at",
+    )
+
+    date_hierarchy = "created_at"
+    ordering = ("-created_at", "-id")
+    list_per_page = 25
+
+    @admin.display(
+        description="Pelanggan",
+        ordering="order_item__order__user__email",
+    )
+    def customer_email(self, obj):
+        return obj.order_item.order.user.email
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "order_item":
+            kwargs["queryset"] = (
+                OrderItem.objects
+                .select_related("order")
+                .order_by("-id")
+            )
+
+        return super().formfield_for_foreignkey(
+            db_field,
+            request,
+            **kwargs,
+        )

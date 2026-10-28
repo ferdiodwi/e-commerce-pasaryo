@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from decimal import Decimal
@@ -8,7 +8,6 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -164,7 +163,11 @@ class OrderItem(models.Model):
         db_table = "order_items"
 
     def __str__(self):
-        return f"{self.product_name_snapshot} x {self.quantity}"
+        return (
+            f"{self.order.order_number} | "
+            f"Item #{self.pk} | "
+            f"{self.product_name_snapshot}"
+        )
 
 
 class OrderTracking(models.Model):
@@ -230,3 +233,31 @@ class OrderTracking(models.Model):
                     )
                 }
             )
+
+
+
+class Review(models.Model):
+    order_item = models.OneToOneField(
+        OrderItem,
+        on_delete=models.CASCADE,
+        related_name="review",
+    )
+
+    rating = models.PositiveSmallIntegerField(
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(5),
+        ],
+        help_text="Isi rating dari 1 sampai 5.",
+    )
+
+    comment = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "reviews"
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"Review item #{self.order_item_id} - {self.rating}/5"
