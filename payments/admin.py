@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .models import Payment, PaymentMethod
 from .forms import PaymentAdminForm
+from .models import Payment, PaymentMethod
 from .services import save_payment
 
 
@@ -60,14 +60,18 @@ class PaymentAdmin(admin.ModelAdmin):
         "payment_method",
     )
 
-    autocomplete_fields = (
-        "order",
-        "payment_method",
-    )
-
     date_hierarchy = "paid_at"
     ordering = ("-id",)
     list_per_page = 25
+
+    readonly_fields = (
+        "order",
+        "payment_reference",
+        "payment_method",
+        "payment_amount",
+        "expires_at",
+        "payment_url",
+    )
 
     fieldsets = (
         (
@@ -100,6 +104,12 @@ class PaymentAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
     def save_model(self, request, obj, form, change):
         save_payment(obj)

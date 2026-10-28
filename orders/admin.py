@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .forms import OrderItemInlineFormSet
+from .forms import OrderAdminForm
 from .models import (
     Order,
     OrderItem,
@@ -8,8 +8,6 @@ from .models import (
     Review,
     ShippingMethod,
 )
-
-from .forms import OrderAdminForm, OrderItemInlineFormSet
 from .services import sync_order_tracking
 
 
@@ -27,9 +25,8 @@ class ShippingMethodAdmin(admin.ModelAdmin):
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
-    formset = OrderItemInlineFormSet
-    autocomplete_fields = ("product_variant",)
-    extra = 1
+    extra = 0
+    can_delete = False
 
     fields = (
         "product_variant",
@@ -39,12 +36,14 @@ class OrderItemInline(admin.TabularInline):
         "quantity",
         "price_at_purchase",
     )
-    readonly_fields = (
-        "product_name_snapshot",
-        "variant_name_snapshot",
-        "sku_snapshot",
-        "price_at_purchase",
-    )
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
 
 class OrderTrackingInline(admin.TabularInline):
     model = OrderTracking
@@ -88,19 +87,22 @@ class OrderAdmin(admin.ModelAdmin):
         "promo_code",
     )
 
-    autocomplete_fields = (
-        "user",
-        "shipping_method",
-        "promo_code",
-    )
-
     ordering = ("-created_at", "-id")
     list_per_page = 25
 
     readonly_fields = (
-        "subtotal",
-        "total_amount",
+        "order_number",
+        "user",
+        "promo_code",
         "created_at",
+        "shipping_method",
+        "shipping_address_snapshot",
+        "subtotal",
+        "shipping_fee",
+        "service_fee",
+        "discount_amount",
+        "total_amount",
+        "payment_due_at",
     )
 
     inlines = (
@@ -147,10 +149,16 @@ class OrderAdmin(admin.ModelAdmin):
         ),
     )
 
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
 
-        if not change or "status" in form.changed_data:
+        if change and "status" in form.changed_data:
             sync_order_tracking(form.instance)
 
 
@@ -196,7 +204,6 @@ class OrderTrackingAdmin(admin.ModelAdmin):
     )
 
 
-
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
     list_display = (
@@ -223,7 +230,12 @@ class ReviewAdmin(admin.ModelAdmin):
         "order_item__order__user",
     )
 
-    readonly_fields = ("created_at",)
+    readonly_fields = (
+        "order_item",
+        "rating",
+        "comment",
+        "created_at",
+    )
 
     fields = (
         "order_item",
@@ -243,16 +255,8 @@ class ReviewAdmin(admin.ModelAdmin):
     def customer_email(self, obj):
         return obj.order_item.order.user.email
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "order_item":
-            kwargs["queryset"] = (
-                OrderItem.objects
-                .select_related("order")
-                .order_by("-id")
-            )
+    def has_add_permission(self, request):
+        return False
 
-        return super().formfield_for_foreignkey(
-            db_field,
-            request,
-            **kwargs,
-        )
+    def has_change_permission(self, request, obj=None):
+        return False

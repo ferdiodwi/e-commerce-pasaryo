@@ -1,10 +1,12 @@
 from django.contrib import admin
 
+from .forms import EventAdminForm, EventProductInlineForm
 from .models import Discount, Event, EventProduct, PromoCode
 
 
 class EventProductInline(admin.TabularInline):
     model = EventProduct
+    form = EventProductInlineForm
     fields = ("product", "discount_type", "discount_value")
     autocomplete_fields = ("product",)
     extra = 1
@@ -15,6 +17,7 @@ class EventProductInline(admin.TabularInline):
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
+    form = EventAdminForm
     list_display = (
         "id",
         "name",

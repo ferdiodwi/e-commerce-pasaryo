@@ -6,12 +6,9 @@ from .models import Order, OrderTracking
 
 
 ALLOWED_TRANSITIONS = {
-    Order.Status.TO_PAY: {
-        Order.Status.PROCESSING,
-        Order.Status.CANCELLED,
-    },
+    Order.Status.TO_PAY: set(),
     Order.Status.PROCESSING: {Order.Status.SHIPPED},
-    Order.Status.SHIPPED: {Order.Status.COMPLETED},
+    Order.Status.SHIPPED: set(),
     Order.Status.COMPLETED: set(),
     Order.Status.CANCELLED: set(),
 }
@@ -19,11 +16,14 @@ ALLOWED_TRANSITIONS = {
 
 def validate_order_status(order, new_status):
     if order is None:
-        if new_status != Order.Status.TO_PAY:
-            raise ValidationError(
-                {"status": "Pesanan baru harus dimulai dari To Pay."}
-            )
-        return
+        raise ValidationError(
+            {
+                "status": (
+                    "Pesanan baru hanya dibuat melalui proses "
+                    "checkout pembeli."
+                )
+            }
+        )
 
     if new_status == order.status:
         return
@@ -37,11 +37,7 @@ def validate_order_status(order, new_status):
         payment_status="SUCCESS",
     )
 
-    if new_status in {
-        Order.Status.PROCESSING,
-        Order.Status.SHIPPED,
-        Order.Status.COMPLETED,
-    }:
+    if new_status == Order.Status.SHIPPED:
         if not successful_payments.filter(
             payment_amount=order.total_amount,
         ).exists():
@@ -53,16 +49,6 @@ def validate_order_status(order, new_status):
                     )
                 }
             )
-
-    if new_status == Order.Status.CANCELLED and successful_payments.exists():
-        raise ValidationError(
-            {
-                "status": (
-                    "Pesanan sudah dibayar; pembatalan "
-                    "memerlukan alur refund."
-                )
-            }
-        )
 
 
 @transaction.atomic
