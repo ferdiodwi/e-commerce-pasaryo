@@ -9,6 +9,9 @@ from .models import (
     ShippingMethod,
 )
 
+from .forms import OrderAdminForm, OrderItemInlineFormSet
+from .services import sync_order_tracking
+
 
 @admin.register(ShippingMethod)
 class ShippingMethodAdmin(admin.ModelAdmin):
@@ -63,6 +66,8 @@ class OrderTrackingInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    form = OrderAdminForm
+
     list_display = (
         "id",
         "order_number",
@@ -71,18 +76,36 @@ class OrderAdmin(admin.ModelAdmin):
         "total_amount",
         "created_at",
     )
+
     list_display_links = ("id",)
+
     search_fields = ("order_number", "user__email")
     list_filter = ("status", "shipping_method")
-    list_select_related = ("user", "shipping_method", "promo_code")
-    autocomplete_fields = ("user", "shipping_method", "promo_code")
+
+    list_select_related = (
+        "user",
+        "shipping_method",
+        "promo_code",
+    )
+
+    autocomplete_fields = (
+        "user",
+        "shipping_method",
+        "promo_code",
+    )
+
     ordering = ("-created_at", "-id")
     list_per_page = 25
 
-    readonly_fields = ("subtotal", "total_amount", "created_at")
+    readonly_fields = (
+        "subtotal",
+        "total_amount",
+        "created_at",
+    )
+
     inlines = (
-    OrderItemInline,
-    OrderTrackingInline,
+        OrderItemInline,
+        OrderTrackingInline,
     )
 
     fieldsets = (
@@ -95,7 +118,7 @@ class OrderAdmin(admin.ModelAdmin):
                     "status",
                     "promo_code",
                     "created_at",
-                )
+                ),
             },
         ),
         (
@@ -106,7 +129,7 @@ class OrderAdmin(admin.ModelAdmin):
                     "shipping_address_snapshot",
                     "estimated_delivery_from",
                     "estimated_delivery_to",
-                )
+                ),
             },
         ),
         (
@@ -119,10 +142,16 @@ class OrderAdmin(admin.ModelAdmin):
                     "discount_amount",
                     "total_amount",
                     "payment_due_at",
-                )
+                ),
             },
         ),
     )
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+
+        if not change or "status" in form.changed_data:
+            sync_order_tracking(form.instance)
 
 
 @admin.register(OrderTracking)

@@ -5,6 +5,8 @@ from orders.models import Order, OrderTracking
 
 from .models import Payment
 
+from orders.services import sync_order_tracking
+
 
 @transaction.atomic
 def save_payment(payment):
@@ -37,6 +39,7 @@ def save_payment(payment):
     if order.status == Order.Status.TO_PAY:
         order.status = Order.Status.PROCESSING
         order.save(update_fields=["status"])
+        sync_order_tracking(order)
 
     tracking = (
         OrderTracking.objects.filter(
