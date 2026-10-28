@@ -11,7 +11,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('catalog', '0003_productimage_productvariant'),
+        ('catalog', '0001_initial'),
         ('orders', '0001_initial'),
         ('promotions', '0003_alter_discount_discount_value'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('catalog', '0003_productimage_productvariant'),
+        ('catalog', '0001_initial'),
     ]
 
     operations = [
