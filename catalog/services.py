@@ -5,6 +5,7 @@ from django.db.models import F
 from .models import ProductVariant
 
 
+# Validasi angka penyesuaian stok
 def validate_stock_adjustment(current_stock, adjustment):
     if isinstance(adjustment, bool) or not isinstance(adjustment, int):
         raise ValidationError(
@@ -13,6 +14,7 @@ def validate_stock_adjustment(current_stock, adjustment):
 
     new_stock = current_stock + adjustment
 
+    # Cegah stok minus
     if new_stock < 0:
         raise ValidationError(
             f"Stok tidak cukup. Stok tersedia: {current_stock}."
@@ -24,11 +26,13 @@ def validate_stock_adjustment(current_stock, adjustment):
     )
 
 
+# Simpan varian & update stok secara atomik
 @transaction.atomic
 def save_product_variant(variant, *, adjustment=0):
     is_new = variant.pk is None
     current_stock = 0
 
+    # Lock baris varian jika edit data lama
     if not is_new:
         current = (
             ProductVariant.objects.select_for_update()
@@ -49,14 +53,17 @@ def save_product_variant(variant, *, adjustment=0):
     variant.stock = new_stock if is_new else current_stock
     variant.full_clean()
 
+    # Varian baru
     if is_new:
         variant.save()
 
+    # Varian lama
     else:
         variant.save(
             update_fields=["product", "color_name", "sku"]
         )
 
+        # Update stok atomik dengan ekspresi SQL F()
         if adjustment:
             updated = ProductVariant.objects.filter(
                 pk=variant.pk,
@@ -72,7 +79,7 @@ def save_product_variant(variant, *, adjustment=0):
 
         variant.refresh_from_db(fields=["stock"])
 
+    # Simpan stok awal untuk log audit
     variant._stock_before = current_stock
 
     return variant
-

@@ -6,6 +6,7 @@ from .models import Order, OrderTracking
 from .services import validate_order_status
 
 
+# Form edit pesanan di admin
 class OrderAdminForm(forms.ModelForm):
     class Meta:
         model = Order
@@ -15,6 +16,7 @@ class OrderAdminForm(forms.ModelForm):
             "estimated_delivery_to",
         )
 
+    # Validasi transisi status pesanan
     def clean(self):
         cleaned_data = super().clean()
         new_status = cleaned_data.get("status")
@@ -40,7 +42,9 @@ class OrderAdminForm(forms.ModelForm):
         return cleaned_data
 
 
+# Form pelacakan pesanan
 class OrderTrackingAdminForm(forms.ModelForm):
+    # Pilihan status yang boleh ditambah manual oleh admin
     ADMIN_CREATE_CHOICES = [
         (
             OrderTracking.StatusCode.PROCESSING,
@@ -70,6 +74,7 @@ class OrderTrackingAdminForm(forms.ModelForm):
         if "status_code" not in self.fields:
             return
 
+        # Kunci status jika edit tracking lama
         if self.instance and self.instance.pk:
             self.fields["status_code"].choices = [
                 (
@@ -83,12 +88,14 @@ class OrderTrackingAdminForm(forms.ModelForm):
                 OrderTracking.StatusCode.IN_TRANSIT
             )
 
+    # Validasi riwayat pelacakan
     def clean(self):
         cleaned_data = super().clean()
         status_code = cleaned_data.get("status_code")
         is_completed = cleaned_data.get("is_completed")
         event_time = cleaned_data.get("event_time")
 
+        # Validasi edit tracking lama
         if self.instance and self.instance.pk:
             previous = (
                 OrderTracking.objects.filter(pk=self.instance.pk).first()
@@ -113,6 +120,7 @@ class OrderTrackingAdminForm(forms.ModelForm):
                     "Status pelacakan yang sudah dibuat tidak dapat diubah.",
                 )
 
+            # Tahap yang selesai tidak boleh dibatalkan atau diubah waktunya
             if previous.is_completed:
                 if not is_completed:
                     self.add_error(
@@ -134,6 +142,7 @@ class OrderTrackingAdminForm(forms.ModelForm):
                         "event_time",
                         "Waktu kejadian yang sudah selesai tidak dapat diubah.",
                     )
+        # Validasi tambah tracking baru
         else:
             allowed_codes = {code for code, _ in self.ADMIN_CREATE_CHOICES}
             if status_code not in allowed_codes:

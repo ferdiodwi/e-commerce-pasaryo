@@ -13,6 +13,7 @@ from .models import (
 from .services import sync_order_tracking, validate_order_status
 
 
+# Daftarkan ShippingMethod ke admin
 @admin.register(ShippingMethod)
 class ShippingMethodAdmin(admin.ModelAdmin):
     list_display = (
@@ -25,6 +26,7 @@ class ShippingMethodAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
+# Inline item pesanan (Read-Only)
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
@@ -47,6 +49,7 @@ class OrderItemInline(admin.TabularInline):
         return False
 
 
+# Inline riwayat pelacakan
 class OrderTrackingInline(admin.TabularInline):
     model = OrderTracking
     form = OrderTrackingAdminForm
@@ -67,6 +70,7 @@ class OrderTrackingInline(admin.TabularInline):
     verbose_name_plural = "Riwayat pesanan"
 
 
+# Daftarkan Order ke admin
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     form = OrderAdminForm
@@ -81,6 +85,7 @@ class OrderAdmin(admin.ModelAdmin):
     )
 
     list_display_links = ("id", "order_number")
+    # Edit status langsung dari tabel
     list_editable = ("status",)
     actions = ("mark_as_shipped",)
 
@@ -96,6 +101,7 @@ class OrderAdmin(admin.ModelAdmin):
     ordering = ("-created_at", "-id")
     list_per_page = 25
 
+    # Data transaksi dibuat read-only
     readonly_fields = (
         "order_number",
         "user",
@@ -116,6 +122,7 @@ class OrderAdmin(admin.ModelAdmin):
         OrderTrackingInline,
     )
 
+    # Tata letak form pesanan
     fieldsets = (
         (
             "Pesanan",
@@ -155,10 +162,12 @@ class OrderAdmin(admin.ModelAdmin):
         ),
     )
 
+    # Pasang validasi status pada list_editable di tabel
     def get_changelist_form(self, request, **kwargs):
         kwargs.setdefault("form", OrderAdminForm)
         return super().get_changelist_form(request, **kwargs)
 
+    # Order hanya dibuat via checkout pembeli
     def has_add_permission(self, request):
         return False
 
@@ -168,12 +177,14 @@ class OrderAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    # Sinkronkan tracking saat status berubah
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
 
         if change and "status" in form.changed_data:
             sync_order_tracking(obj)
 
+    # Aksi massal ubah status ke Shipped
     @admin.action(description="Ubah status pesanan terpilih menjadi Shipped")
     def mark_as_shipped(self, request, queryset):
         updated_count = 0
@@ -204,6 +215,7 @@ class OrderAdmin(admin.ModelAdmin):
             )
 
 
+# Daftarkan OrderTracking ke admin
 @admin.register(OrderTracking)
 class OrderTrackingAdmin(admin.ModelAdmin):
     form = OrderTrackingAdminForm
@@ -247,10 +259,12 @@ class OrderTrackingAdmin(admin.ModelAdmin):
         "is_completed",
     )
 
+    # Riwayat pelacakan tidak boleh dihapus
     def has_delete_permission(self, request, obj=None):
         return False
 
 
+# Daftarkan Review ke admin (Read-Only)
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
     list_display = (
@@ -295,6 +309,7 @@ class ReviewAdmin(admin.ModelAdmin):
     ordering = ("-created_at", "-id")
     list_per_page = 25
 
+    # Tampilkan email pembeli
     @admin.display(
         description="Pelanggan",
         ordering="order_item__order__user__email",
@@ -302,6 +317,7 @@ class ReviewAdmin(admin.ModelAdmin):
     def customer_email(self, obj):
         return obj.order_item.order.user.email
 
+    # Admin tidak boleh menambah atau mengedit review pembeli
     def has_add_permission(self, request):
         return False
 

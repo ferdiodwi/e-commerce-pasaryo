@@ -4,6 +4,7 @@ from .forms import EventAdminForm, EventProductInlineForm
 from .models import Discount, Event, EventProduct, PromoCode
 
 
+# Tabel inline produk event
 class EventProductInline(admin.TabularInline):
     model = EventProduct
     form = EventProductInlineForm
@@ -15,6 +16,7 @@ class EventProductInline(admin.TabularInline):
     verbose_name_plural = "Produk event"
 
 
+# Daftarkan Event ke admin
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
     form = EventAdminForm
@@ -37,6 +39,7 @@ class EventAdmin(admin.ModelAdmin):
     inlines = (EventProductInline,)
 
 
+# Daftarkan Discount ke admin
 @admin.register(Discount)
 class DiscountAdmin(admin.ModelAdmin):
     list_display = (
@@ -57,6 +60,7 @@ class DiscountAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
+# Daftarkan PromoCode ke admin
 @admin.register(PromoCode)
 class PromoCodeAdmin(admin.ModelAdmin):
     list_display = (

@@ -5,6 +5,7 @@ from .models import Payment, PaymentMethod
 from .services import save_payment
 
 
+# Daftarkan PaymentMethod ke admin
 @admin.register(PaymentMethod)
 class PaymentMethodAdmin(admin.ModelAdmin):
     list_display = (
@@ -28,6 +29,7 @@ class PaymentMethodAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
+# Daftarkan Payment ke admin
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     form = PaymentAdminForm
@@ -72,6 +74,7 @@ class PaymentAdmin(admin.ModelAdmin):
         "order",
     )
 
+    # Tata letak form pembayaran
     fieldsets = (
         (
             "Pesanan",
@@ -104,6 +107,7 @@ class PaymentAdmin(admin.ModelAdmin):
         ),
     )
 
+    # Pembayaran hanya dibuat via checkout pembeli
     def has_add_permission(self, request):
         return False
 
@@ -113,5 +117,6 @@ class PaymentAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return super().has_delete_permission(request, obj)
 
+    # Simpan pembayaran lewat service
     def save_model(self, request, obj, form, change):
         save_payment(obj)

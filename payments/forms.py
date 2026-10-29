@@ -7,11 +7,13 @@ from orders.models import Order
 from .models import Payment
 
 
+# Form pembayaran di admin
 class PaymentAdminForm(forms.ModelForm):
     class Meta:
         model = Payment
         fields = "__all__"
 
+    # Lock order saat validasi form
     def clean(self):
         cleaned_data = super().clean()
 

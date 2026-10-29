@@ -7,7 +7,9 @@ from django.contrib.auth.models import (
 from django.db import models
 
 
+# Custom user manager
 class UserManager(BaseUserManager):
+    # Buat user biasa
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError("Email wajib diisi.")
@@ -20,6 +22,7 @@ class UserManager(BaseUserManager):
 
         return user
 
+    # Buat superuser
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("role", self.model.Role.ADMIN)
         extra_fields.setdefault("is_staff", True)
@@ -44,7 +47,9 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+# Model User
 class User(AbstractBaseUser, PermissionsMixin):
+    # Pilihan role
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"
         USER = "user", "User"
@@ -67,6 +72,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
+    # Login dengan email
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["full_name"]
 
@@ -82,6 +88,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     def get_short_name(self):
         return self.full_name or self.email
 
+    # Sinkronkan role ke is_staff & is_superuser
     def save(self, *args, **kwargs):
         is_admin = self.role == self.Role.ADMIN
         self.is_staff = is_admin
@@ -99,6 +106,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().save(*args, **kwargs)
 
 
+# Model alamat user
 class UserAddress(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -118,6 +126,7 @@ class UserAddress(models.Model):
 
     class Meta:
         db_table = "user_addresses"
+        # Alamat utama unik per user
         constraints = [
             models.UniqueConstraint(
                 fields=["user"],

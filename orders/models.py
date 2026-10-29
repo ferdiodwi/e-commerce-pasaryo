@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 
+# Model Metode Pengiriman
 class ShippingMethod(models.Model):
     name = models.CharField(max_length=100)
     estimated_days = models.CharField(max_length=20)
@@ -30,11 +31,14 @@ class ShippingMethod(models.Model):
         return self.name
 
 
+# Generate nomor pesanan unik
 def generate_order_number():
     return f"ORD-{uuid4().hex.upper()}"
 
 
+# Model Pesanan
 class Order(models.Model):
+    # Pilihan status pesanan
     class Status(models.TextChoices):
         TO_PAY = "to_pay", "To Pay"
         PROCESSING = "processing", "Processing"
@@ -65,6 +69,7 @@ class Order(models.Model):
         related_name="orders",
     )
 
+    # Snapshot alamat saat checkout
     shipping_address_snapshot = models.TextField()
 
     subtotal = models.DecimalField(
@@ -135,6 +140,7 @@ class Order(models.Model):
     def __str__(self):
         return self.order_number
 
+    # Validasi rentang tanggal estimasi tiba
     def clean(self):
         super().clean()
 
@@ -152,6 +158,7 @@ class Order(models.Model):
             )
 
 
+# Model Item Pesanan (snapshot produk saat dibeli)
 class OrderItem(models.Model):
     order = models.ForeignKey(
         Order,
@@ -166,6 +173,7 @@ class OrderItem(models.Model):
         related_name="order_items",
     )
 
+    # Snapshot data produk saat transaksi
     product_name_snapshot = models.CharField(max_length=200)
     variant_name_snapshot = models.CharField(max_length=100)
     sku_snapshot = models.CharField(max_length=64)
@@ -190,7 +198,9 @@ class OrderItem(models.Model):
         )
 
 
+# Model Riwayat Pelacakan
 class OrderTracking(models.Model):
+    # Pilihan tahapan pelacakan
     class StatusCode(models.TextChoices):
         ORDER_PLACED = "order_placed", "Order Placed"
         PAYMENT_CONFIRMED = "payment_confirmed", "Payment Confirmed"
@@ -242,6 +252,7 @@ class OrderTracking(models.Model):
     def __str__(self):
         return f"Order #{self.order_id} - {self.get_status_code_display()}"
 
+    # Wajib isi event_time jika tahap selesai
     def clean(self):
         super().clean()
 
@@ -255,7 +266,7 @@ class OrderTracking(models.Model):
             )
 
 
-
+# Model Ulasan Pembeli
 class Review(models.Model):
     order_item = models.OneToOneField(
         OrderItem,

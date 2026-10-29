@@ -6,6 +6,8 @@ from django.db import models
 
 from orders.models import Order
 
+
+# Model Metode Pembayaran
 class PaymentMethod(models.Model):
     name = models.CharField(max_length=100)
 
@@ -30,7 +32,9 @@ class PaymentMethod(models.Model):
         return f"{self.name} - {self.channel_provider}"
 
 
+# Model Pembayaran
 class Payment(models.Model):
+    # Pilihan status pembayaran
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
         SUCCESS = "SUCCESS", "Success"
@@ -91,6 +95,7 @@ class Payment(models.Model):
     def __str__(self):
         return self.payment_reference
 
+    # Validasi pembayaran
     def clean(self):
         super().clean()
         errors = {}
@@ -99,6 +104,7 @@ class Payment(models.Model):
         if self.pk:
             previous = type(self).objects.filter(pk=self.pk).first()
 
+        # Cegah pindah pesanan
         if previous and self.order_id != previous.order_id:
             errors["order"] = (
                 "Pesanan pada pembayaran tersimpan tidak dapat dipindahkan. "
@@ -110,6 +116,7 @@ class Payment(models.Model):
             and previous.payment_status != self.Status.PENDING
         )
 
+        # Pembayaran final tidak bisa diedit
         if already_final:
             protected_fields = (
                 "payment_method",
@@ -134,6 +141,7 @@ class Payment(models.Model):
                 if getattr(self, attname) != getattr(previous, attname):
                     errors[name] = error_message
 
+        # Validasi status Success
         if self.payment_status == self.Status.SUCCESS:
             if self.paid_at is None:
                 errors["paid_at"] = (
@@ -144,11 +152,13 @@ class Payment(models.Model):
                 order = Order.objects.filter(pk=self.order_id).first()
 
                 if order is not None:
+                    # Cegah konfirmasi jika pesanan dibatalkan
                     if order.status == Order.Status.CANCELLED:
                         errors["order"] = (
                             "Pesanan yang dibatalkan tidak dapat dikonfirmasi."
                         )
 
+                    # Nominal harus sama persis dengan total pesanan
                     if (
                         self.payment_amount is not None
                         and self.payment_amount != order.total_amount
@@ -157,6 +167,7 @@ class Payment(models.Model):
                             "Nominal pembayaran harus sama dengan total pesanan."
                         )
 
+                    # Cegah pembayaran sukses ganda
                     other_success = type(self).objects.filter(
                         order_id=self.order_id,
                         payment_status=self.Status.SUCCESS,
@@ -167,6 +178,7 @@ class Payment(models.Model):
                             "Pesanan ini sudah memiliki pembayaran sukses."
                         )
 
+        # paid_at hanya untuk status Success
         elif self.paid_at is not None:
             errors["paid_at"] = (
                 "Waktu pembayaran hanya diisi untuk status Success."

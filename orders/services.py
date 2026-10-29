@@ -5,6 +5,7 @@ from django.utils import timezone
 from .models import Order, OrderTracking
 
 
+# Aturan transisi status pesanan
 ALLOWED_TRANSITIONS = {
     Order.Status.TO_PAY: {
         Order.Status.PROCESSING,
@@ -23,7 +24,9 @@ ALLOWED_TRANSITIONS = {
 }
 
 
+# Validasi alur status pesanan
 def validate_order_status(order, new_status):
+    # Cegah buat order baru manual dari admin
     if order is None:
         raise ValidationError(
             {
@@ -37,6 +40,7 @@ def validate_order_status(order, new_status):
     if new_status == order.status:
         return
 
+    # Cek urutan transisi
     if new_status not in ALLOWED_TRANSITIONS.get(order.status, set()):
         raise ValidationError(
             {"status": "Perubahan status tidak sesuai urutan pesanan."}
@@ -46,6 +50,7 @@ def validate_order_status(order, new_status):
         payment_status="SUCCESS",
     )
 
+    # Wajib lunas sebelum diproses atau dikirim
     if new_status in {
         Order.Status.PROCESSING,
         Order.Status.SHIPPED,
@@ -63,6 +68,7 @@ def validate_order_status(order, new_status):
                 }
             )
 
+    # Cegah cancel jika sudah dibayar
     if new_status == Order.Status.CANCELLED and successful_payments.exists():
         raise ValidationError(
             {
@@ -74,10 +80,12 @@ def validate_order_status(order, new_status):
         )
 
 
+# Sinkronkan status pesanan ke tracking
 @transaction.atomic
 def sync_order_tracking(order):
     order = Order.objects.select_for_update().get(pk=order.pk)
 
+    # Pemetaan status order ke tracking
     status_map = {
         Order.Status.TO_PAY: OrderTracking.StatusCode.ORDER_PLACED,
         Order.Status.PROCESSING: OrderTracking.StatusCode.PROCESSING,
@@ -94,12 +102,14 @@ def sync_order_tracking(order):
         .first()
     )
 
+    # Buat tracking baru jika belum ada
     if tracking is None:
         tracking = OrderTracking(
             order=order,
             status_code=status_code,
         )
 
+    # Tandai tahap ini selesai
     if not tracking.is_completed:
         tracking.description = (
             tracking.description

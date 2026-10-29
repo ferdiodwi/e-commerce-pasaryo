@@ -11,6 +11,7 @@ from .models import (
 from .services import save_product_variant
 
 
+# Daftarkan Brand ke admin
 @admin.register(Brand)
 class BrandAdmin(admin.ModelAdmin):
     list_display = ("id", "name")
@@ -20,6 +21,7 @@ class BrandAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
+# Daftarkan Category ke admin
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ("id", "name")
@@ -29,6 +31,7 @@ class CategoryAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
+# Tabel inline gambar produk
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     fields = ("image_url", "sort_order")
@@ -39,9 +42,11 @@ class ProductImageInline(admin.TabularInline):
     verbose_name_plural = "Gambar produk"
 
 
+# Tabel inline varian produk
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     fields = ("color_name", "sku", "stock")
+    # Stok dibuat read-only di inline
     readonly_fields = ("stock",)
     extra = 1
 
@@ -49,6 +54,7 @@ class ProductVariantInline(admin.TabularInline):
     verbose_name_plural = "Varian produk"
 
 
+# Daftarkan Product ke admin
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
@@ -70,6 +76,7 @@ class ProductAdmin(admin.ModelAdmin):
     )
 
     list_filter = ("category", "brand", "origin_city")
+    # Optimasi query relasi
     list_select_related = ("category", "brand")
     autocomplete_fields = ("category", "brand")
 
@@ -91,6 +98,7 @@ class ProductAdmin(admin.ModelAdmin):
         ProductVariantInline,
     )
 
+    # Simpan inline varian lewat service
     def save_formset(self, request, form, formset, change):
         if formset.model is not ProductVariant:
             return super().save_formset(request, form, formset, change)
@@ -106,6 +114,7 @@ class ProductAdmin(admin.ModelAdmin):
         formset.save_m2m()
 
 
+# Daftarkan ProductVariant ke admin
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
     form = ProductVariantAdminForm
@@ -118,6 +127,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
     ordering = ("-id",)
     list_per_page = 25
 
+    # Stok dibuat read-only (ubah lewat stock_adjustment)
     readonly_fields = ("stock",)
 
     fields = (
@@ -129,6 +139,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
         "stock_note",
     )
 
+    # Simpan perubahan stok lewat service
     def save_model(self, request, obj, form, change):
         save_product_variant(
             obj,
@@ -137,6 +148,7 @@ class ProductVariantAdmin(admin.ModelAdmin):
             ),
         )
 
+    # Catat riwayat ubah stok ke History admin
     def construct_change_message(
         self,
         request,

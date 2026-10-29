@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.core.validators import MinValueValidator
 
 
+# Model Brand
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -15,6 +16,7 @@ class Brand(models.Model):
         return self.name
 
 
+# Model Kategori
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -26,6 +28,7 @@ class Category(models.Model):
         return self.name
 
 
+# Model Produk
 class Product(models.Model):
     category = models.ForeignKey(
         Category,
@@ -57,6 +60,7 @@ class Product(models.Model):
         return self.name
 
 
+# Model Gambar Produk
 class ProductImage(models.Model):
     product = models.ForeignKey(
         Product,
@@ -72,6 +76,7 @@ class ProductImage(models.Model):
         ordering = ["sort_order"]
 
 
+# Model Varian Produk
 class ProductVariant(models.Model):
     product = models.ForeignKey(
         Product,

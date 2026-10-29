@@ -6,6 +6,7 @@ from django.contrib.auth.forms import (
 from .models import User
 
 
+# Form tambah user
 class AccountCreationForm(BaseUserCreationForm):
     class Meta:
         model = User
@@ -19,6 +20,7 @@ class AccountCreationForm(BaseUserCreationForm):
         )
 
 
+# Form edit user
 class AccountChangeForm(UserChangeForm):
     class Meta:
         model = User

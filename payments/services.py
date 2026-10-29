@@ -8,8 +8,10 @@ from .models import Payment
 from orders.services import sync_order_tracking
 
 
+# Simpan pembayaran & update pesanan secara atomik
 @transaction.atomic
 def save_payment(payment):
+    # Lock Order dan Payment
     order = (
         Order.objects.select_for_update()
         .filter(pk=payment.order_id)
@@ -36,11 +38,13 @@ def save_payment(payment):
     if payment.payment_status != Payment.Status.SUCCESS:
         return payment
 
+    # Otomatis ubah status pesanan ke Processing
     if order.status == Order.Status.TO_PAY:
         order.status = Order.Status.PROCESSING
         order.save(update_fields=["status"])
         sync_order_tracking(order)
 
+    # Catat riwayat konfirmasi pembayaran
     tracking = (
         OrderTracking.objects.filter(
             order=order,

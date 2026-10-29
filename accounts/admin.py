@@ -5,9 +5,12 @@ from .forms import AccountChangeForm, AccountCreationForm
 from .models import User, UserAddress
 
 
+# Daftarkan User ke admin
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
+    # Form edit user
     form = AccountChangeForm
+    # Form tambah user
     add_form = AccountCreationForm
 
     list_display = (
@@ -24,6 +27,7 @@ class UserAdmin(DjangoUserAdmin):
     ordering = ("-date_joined", "-id")
     list_per_page = 25
 
+    # Kolom read-only
     readonly_fields = (
         "is_staff",
         "is_superuser",
@@ -32,6 +36,7 @@ class UserAdmin(DjangoUserAdmin):
     )
     filter_horizontal = ()
 
+    # Tata letak form edit user
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         (
@@ -48,6 +53,7 @@ class UserAdmin(DjangoUserAdmin):
         ),
     )
 
+    # Tata letak form tambah user
     add_fieldsets = (
         (
             None,
@@ -68,6 +74,7 @@ class UserAdmin(DjangoUserAdmin):
     )
 
 
+# Daftarkan UserAddress ke admin
 @admin.register(UserAddress)
 class UserAddressAdmin(admin.ModelAdmin):
     list_display = (
@@ -86,10 +93,12 @@ class UserAddressAdmin(admin.ModelAdmin):
         "city",
     )
     list_filter = ("province", "city", "is_main")
+    # Optimasi query user
     list_select_related = ("user",)
     ordering = ("-id",)
     list_per_page = 25
 
+    # Matikan izin tambah, edit, dan hapus
     def has_add_permission(self, request):
         return False
 

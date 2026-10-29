@@ -5,7 +5,9 @@ from .models import ProductVariant
 from .services import validate_stock_adjustment
 
 
+# Form varian produk & atur stok
 class ProductVariantAdminForm(forms.ModelForm):
+    # Input penyesuaian stok (+/-)
     stock_adjustment = forms.IntegerField(
         label="Penyesuaian stok",
         required=False,
@@ -16,6 +18,7 @@ class ProductVariantAdminForm(forms.ModelForm):
         ),
     )
 
+    # Alasan ubah stok
     stock_note = forms.CharField(
         label="Alasan penyesuaian",
         max_length=200,
@@ -30,6 +33,7 @@ class ProductVariantAdminForm(forms.ModelForm):
             "sku",
         )
 
+    # Validasi penyesuaian stok
     def clean(self):
         cleaned_data = super().clean()
         adjustment = cleaned_data.get("stock_adjustment") or 0
@@ -55,6 +59,7 @@ class ProductVariantAdminForm(forms.ModelForm):
         except ValidationError as error:
             self.add_error("stock_adjustment", error)
 
+        # Wajib isi alasan jika ubah stok
         if adjustment and not cleaned_data.get("stock_note"):
             self.add_error(
                 "stock_note",
@@ -62,4 +67,3 @@ class ProductVariantAdminForm(forms.ModelForm):
             )
 
         return cleaned_data
-

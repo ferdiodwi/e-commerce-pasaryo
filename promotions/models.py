@@ -1,16 +1,17 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from django.core.validators import MaxValueValidator, MinValueValidator
 
+# Pilihan jenis diskon
 class DiscountType(models.TextChoices):
     PERCENTAGE = "percentage", "Persentase"
     FIXED = "fixed", "Fixed"
 
 
+# Model Event Promo
 class Event(models.Model):
     name = models.CharField(max_length=150)
     start_date = models.DateTimeField()
@@ -38,6 +39,7 @@ class Event(models.Model):
     def __str__(self):
         return self.name
 
+    # Validasi tanggal & nilai diskon event
     def clean(self):
         super().clean()
         errors = {}
@@ -62,6 +64,7 @@ class Event(models.Model):
             raise ValidationError(errors)
 
 
+# Model perantara Event & Produk
 class EventProduct(models.Model):
     event = models.ForeignKey(
         Event,
@@ -97,6 +100,7 @@ class EventProduct(models.Model):
             ),
         ]
 
+    # Validasi override diskon produk event
     def clean(self):
         super().clean()
 
@@ -119,7 +123,7 @@ class EventProduct(models.Model):
             )
 
 
-
+# Model Diskon langsung per produk
 class Discount(models.Model):
     product = models.ForeignKey(
         "catalog.Product",
@@ -146,6 +150,7 @@ class Discount(models.Model):
     def __str__(self):
         return f"{self.product} - {self.discount_value}"
 
+    # Validasi tanggal diskon produk
     def clean(self):
         super().clean()
 
@@ -163,6 +168,7 @@ class Discount(models.Model):
             )
 
 
+# Model Kode Promo (Voucher)
 class PromoCode(models.Model):
     code = models.CharField(max_length=50, unique=True)
 
@@ -205,6 +211,7 @@ class PromoCode(models.Model):
     def __str__(self):
         return self.code
 
+    # Validasi kupon & uppercase kode
     def clean(self):
         super().clean()
 
