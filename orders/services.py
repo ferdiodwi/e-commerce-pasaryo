@@ -6,9 +6,18 @@ from .models import Order, OrderTracking
 
 
 ALLOWED_TRANSITIONS = {
-    Order.Status.TO_PAY: set(),
-    Order.Status.PROCESSING: {Order.Status.SHIPPED},
-    Order.Status.SHIPPED: set(),
+    Order.Status.TO_PAY: {
+        Order.Status.PROCESSING,
+        Order.Status.SHIPPED,
+        Order.Status.CANCELLED,
+    },
+    Order.Status.PROCESSING: {
+        Order.Status.SHIPPED,
+        Order.Status.CANCELLED,
+    },
+    Order.Status.SHIPPED: {
+        Order.Status.COMPLETED,
+    },
     Order.Status.COMPLETED: set(),
     Order.Status.CANCELLED: set(),
 }
@@ -37,7 +46,11 @@ def validate_order_status(order, new_status):
         payment_status="SUCCESS",
     )
 
-    if new_status == Order.Status.SHIPPED:
+    if new_status in {
+        Order.Status.PROCESSING,
+        Order.Status.SHIPPED,
+        Order.Status.COMPLETED,
+    }:
         if not successful_payments.filter(
             payment_amount=order.total_amount,
         ).exists():
@@ -49,6 +62,16 @@ def validate_order_status(order, new_status):
                     )
                 }
             )
+
+    if new_status == Order.Status.CANCELLED and successful_payments.exists():
+        raise ValidationError(
+            {
+                "status": (
+                    "Pesanan sudah dibayar; pembatalan "
+                    "memerlukan alur refund."
+                )
+            }
+        )
 
 
 @transaction.atomic

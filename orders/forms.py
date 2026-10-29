@@ -1,5 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db import connection
 
 from .models import Order, OrderTracking
 from .services import validate_order_status
@@ -24,11 +25,12 @@ class OrderAdminForm(forms.ModelForm):
         current_order = None
 
         if self.instance.pk:
-            current_order = (
+            qs = (
                 Order.objects.select_for_update()
-                .filter(pk=self.instance.pk)
-                .first()
+                if connection.in_atomic_block
+                else Order.objects
             )
+            current_order = qs.filter(pk=self.instance.pk).first()
 
             if current_order is None:
                 raise ValidationError("Pesanan sudah dihapus.")
@@ -39,6 +41,25 @@ class OrderAdminForm(forms.ModelForm):
 
 
 class OrderTrackingAdminForm(forms.ModelForm):
+    ADMIN_CREATE_CHOICES = [
+        (
+            OrderTracking.StatusCode.PROCESSING,
+            OrderTracking.StatusCode.PROCESSING.label,
+        ),
+        (
+            OrderTracking.StatusCode.SHIPPED,
+            OrderTracking.StatusCode.SHIPPED.label,
+        ),
+        (
+            OrderTracking.StatusCode.IN_TRANSIT,
+            OrderTracking.StatusCode.IN_TRANSIT.label,
+        ),
+        (
+            OrderTracking.StatusCode.DELIVERED,
+            OrderTracking.StatusCode.DELIVERED.label,
+        ),
+    ]
+
     class Meta:
         model = OrderTracking
         fields = "__all__"
@@ -57,12 +78,7 @@ class OrderTrackingAdminForm(forms.ModelForm):
                 ),
             ]
         else:
-            self.fields["status_code"].choices = [
-                (
-                    OrderTracking.StatusCode.IN_TRANSIT,
-                    OrderTracking.StatusCode.IN_TRANSIT.label,
-                ),
-            ]
+            self.fields["status_code"].choices = self.ADMIN_CREATE_CHOICES
             self.fields["status_code"].initial = (
                 OrderTracking.StatusCode.IN_TRANSIT
             )
@@ -103,19 +119,27 @@ class OrderTrackingAdminForm(forms.ModelForm):
                         "is_completed",
                         "Tahap pelacakan yang sudah selesai tidak dapat dibatalkan.",
                     )
-                if event_time != previous.event_time:
+                prev_time = (
+                    previous.event_time.replace(microsecond=0)
+                    if previous.event_time is not None
+                    else None
+                )
+                curr_time = (
+                    event_time.replace(microsecond=0)
+                    if event_time is not None
+                    else None
+                )
+                if "event_time" in self.changed_data and curr_time != prev_time:
                     self.add_error(
                         "event_time",
                         "Waktu kejadian yang sudah selesai tidak dapat diubah.",
                     )
         else:
-            if status_code != OrderTracking.StatusCode.IN_TRANSIT:
+            allowed_codes = {code for code, _ in self.ADMIN_CREATE_CHOICES}
+            if status_code not in allowed_codes:
                 self.add_error(
                     "status_code",
-                    (
-                        "Penambahan manual oleh admin hanya untuk "
-                        "progres pengiriman (In Transit)."
-                    ),
+                    "Status pelacakan tidak diizinkan untuk penambahan manual.",
                 )
 
             order = cleaned_data.get("order") or getattr(

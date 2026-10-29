@@ -1,4 +1,6 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
+from django.db import transaction
 
 from .forms import OrderAdminForm, OrderTrackingAdminForm
 from .models import (
@@ -8,7 +10,7 @@ from .models import (
     Review,
     ShippingMethod,
 )
-from .services import sync_order_tracking
+from .services import sync_order_tracking, validate_order_status
 
 
 @admin.register(ShippingMethod)
@@ -78,7 +80,9 @@ class OrderAdmin(admin.ModelAdmin):
         "created_at",
     )
 
-    list_display_links = ("id",)
+    list_display_links = ("id", "order_number")
+    list_editable = ("status",)
+    actions = ("mark_as_shipped",)
 
     search_fields = ("order_number", "user__email")
     list_filter = ("status", "shipping_method")
@@ -151,17 +155,53 @@ class OrderAdmin(admin.ModelAdmin):
         ),
     )
 
+    def get_changelist_form(self, request, **kwargs):
+        kwargs.setdefault("form", OrderAdminForm)
+        return super().get_changelist_form(request, **kwargs)
+
     def has_add_permission(self, request):
         return False
+
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
         return False
 
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
 
         if change and "status" in form.changed_data:
-            sync_order_tracking(form.instance)
+            sync_order_tracking(obj)
+
+    @admin.action(description="Ubah status pesanan terpilih menjadi Shipped")
+    def mark_as_shipped(self, request, queryset):
+        updated_count = 0
+        for order in queryset:
+            try:
+                with transaction.atomic():
+                    locked = Order.objects.select_for_update().get(pk=order.pk)
+                    if locked.status == Order.Status.SHIPPED:
+                        continue
+                    validate_order_status(locked, Order.Status.SHIPPED)
+                    locked.status = Order.Status.SHIPPED
+                    locked.save(update_fields=["status"])
+                    sync_order_tracking(locked)
+                    updated_count += 1
+            except ValidationError as exc:
+                err_text = "; ".join(exc.messages)
+                self.message_user(
+                    request,
+                    f"{order.order_number}: {err_text}",
+                    level=messages.ERROR,
+                )
+
+        if updated_count:
+            self.message_user(
+                request,
+                f"{updated_count} pesanan berhasil diubah ke status Shipped.",
+                level=messages.SUCCESS,
+            )
 
 
 @admin.register(OrderTracking)

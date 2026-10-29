@@ -60,17 +60,16 @@ class PaymentAdmin(admin.ModelAdmin):
         "payment_method",
     )
 
+    autocomplete_fields = (
+        "payment_method",
+    )
+
     date_hierarchy = "paid_at"
     ordering = ("-id",)
     list_per_page = 25
 
     readonly_fields = (
         "order",
-        "payment_reference",
-        "payment_method",
-        "payment_amount",
-        "expires_at",
-        "payment_url",
     )
 
     fieldsets = (
@@ -108,8 +107,11 @@ class PaymentAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return super().has_change_permission(request, obj)
+
     def has_delete_permission(self, request, obj=None):
-        return False
+        return super().has_delete_permission(request, obj)
 
     def save_model(self, request, obj, form, change):
         save_payment(obj)

@@ -1,5 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db import connection
 
 from orders.models import Order
 
@@ -9,20 +10,18 @@ from .models import Payment
 class PaymentAdminForm(forms.ModelForm):
     class Meta:
         model = Payment
-        fields = (
-            "payment_status",
-            "paid_at",
-        )
+        fields = "__all__"
 
     def clean(self):
         cleaned_data = super().clean()
 
         if self.instance.order_id:
-            locked_order = (
+            qs = (
                 Order.objects.select_for_update()
-                .filter(pk=self.instance.order_id)
-                .first()
+                if connection.in_atomic_block
+                else Order.objects
             )
+            locked_order = qs.filter(pk=self.instance.order_id).first()
 
             if locked_order is None:
                 raise ValidationError("Pesanan tidak ditemukan.")
